@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ComfyUI Cast Receiver</title>
+<script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+
+  /*
+    The reason this receiver exists at all. Google's Default Media Receiver draws a metadata
+    banner over the video whenever it is paused, and nothing on the sender side can turn that
+    off. Here the player is ours, so it draws nothing it is not told to.
+  */
+  cast-media-player {
+    --background-color: #000;
+    --splash-size: 0;
+    --theme-hue: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Set by the zoom message handler below; the video itself is what gets transformed. */
+  video {
+    transform-origin: 50% 50%;
+    will-change: transform;
+  }
+
+  #status {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    font: 13px/1.4 system-ui, sans-serif;
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(0, 0, 0, 0.45);
+    padding: 6px 10px;
+    border-radius: 6px;
+    max-width: 80vw;
+    word-break: break-all;
+    /* Diagnostic only — remove once HTTP media playback is confirmed. */
+  }
+</style>
+</head>
+<body>
+  <cast-media-player id="player"></cast-media-player>
+  <div id="status">receiver ready</div>
+
+<script>
+(function () {
+  var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
+  var context = cast.framework.CastReceiverContext.getInstance();
+  var playerManager = context.getPlayerManager();
+  var statusEl = document.getElementById('status');
+
+  function status(text) {
+    if (statusEl) statusEl.textContent = text;
+    console.log('[comfyui-receiver]', text);
+  }
+
+  /*
+    The <video> lives inside cast-media-player's shadow DOM. Queried lazily rather than once at
+    startup because it does not exist until the first load, and re-queried on every transform in
+    case the element is replaced between items.
+  */
+  function videoElement() {
+    var player = document.getElementById('player');
+    var root = player && player.shadowRoot;
+    return (root && root.querySelector('video')) || document.querySelector('video');
+  }
+
+  function applyTransform(scale, offsetX, offsetY) {
+    var video = videoElement();
+    if (!video) {
+      status('zoom ignored: no video element yet');
+      return;
+    }
+    var s = typeof scale === 'number' && scale > 0 ? scale : 1;
+    var x = typeof offsetX === 'number' ? offsetX : 0;
+    var y = typeof offsetY === 'number' ? offsetY : 0;
+    video.style.transform = 'translate(' + x + '%, ' + y + '%) scale(' + s + ')';
+    status('zoom ' + s.toFixed(2) + 'x at ' + x + '%, ' + y + '%');
+  }
+
+  /*
+    Zoom and frame-stepping arrive here as plain JSON from the phone. Both exist because
+    RemoteMediaClient cannot express them: a paused Chromecast ignores seeks shorter than about
+    750ms, and there is no sender-side API for scaling the picture at all. Done here they are
+    just currentTime arithmetic and a CSS transform.
+  */
+  context.addCustomMessageListener(NAMESPACE, function (event) {
+    var data = event.data || {};
+    switch (data.type) {
+      case 'zoom':
+        applyTransform(data.scale, data.x, data.y);
+        break;
+      case 'step': {
+        var video = videoElement();
+        if (!video) return;
+        var fps = data.fps > 0 ? data.fps : 24;
+        video.pause();
+        video.currentTime = Math.max(0, video.currentTime + (data.forward ? 1 : -1) / fps);
+        status('step to ' + video.currentTime.toFixed(3) + 's');
+        break;
+      }
+      default:
+        status('unknown message: ' + JSON.stringify(data).slice(0, 120));
+    }
+  });
+
+  // The whole point of this first deploy: confirm the Chromecast will play a plain http:// URL
+  // from an https:// receiver page. Logged rather than assumed.
+  playerManager.setMessageInterceptor(
+    cast.framework.messages.MessageType.LOAD,
+    function (request) {
+      var url = request && request.media && request.media.contentId;
+      status('LOAD ' + url);
+      return request;
+    }
+  );
+
+  playerManager.addEventListener(cast.framework.events.EventType.MEDIA_STATUS, function (e) {
+    if (e.mediaStatus && e.mediaStatus.playerState) {
+      status('state ' + e.mediaStatus.playerState);
+    }
+  });
+
+  playerManager.addEventListener(cast.framework.events.EventType.ERROR, function (e) {
+    status('ERROR ' + (e.detailedErrorCode || '') + ' ' + (e.error ? JSON.stringify(e.error).slice(0, 160) : ''));
+  });
+
+  var options = new cast.framework.CastReceiverOptions();
+  options.customNamespaces = {};
+  options.customNamespaces[NAMESPACE] = cast.framework.system.MessageType.JSON;
+  // Without this the receiver shuts down as soon as the sender disconnects briefly.
+  options.disableIdleTimeout = false;
+
+  context.start(options);
+  status('receiver started');
+})();
+</script>
+</body>
+</html>
