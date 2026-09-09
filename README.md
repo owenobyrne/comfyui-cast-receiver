@@ -22,6 +22,28 @@ The phone sends JSON on `urn:x-cast:com.obyrne.comfyui`:
 { "type": "step", "forward": true, "fps": 24 }
 ```
 
+## Playlists come for free
+
+This page is built on the Cast Application Framework (`cast_receiver_framework.js`,
+`cast.framework.CastReceiverContext` + `PlayerManager`) rather than a bare `<video>` tag with
+hand-rolled message handling. One consequence worth knowing: **CAF's stock `PlayerManager`
+already handles a multi-item Cast queue** — auto-advancing between items and keeping
+`RemoteMediaClient` state in sync on every transition — with no code here at all. The phone
+app's "Cast all"/"Shuffle" (see `CastController.castPlaylist` in `android-comfyui`) is a real
+`queueLoad` with several `MediaQueueItem`s rather than one item at a time, and needed no
+changes on this side. The single-video load this receiver already handled was itself a
+one-item queue (used to get `REPEAT_MODE_REPEAT_SINGLE` looping), so a playlist is the same
+mechanism at a different size, not a new one.
+
+**Not built, and not free:** a cross-fade transition between playlist items. CAF's
+`PlayerManager` hard-cuts between queue items with no transition API, so that would mean
+bypassing it — two manually-managed `<video>` elements, custom preload/fade timing at each
+queue boundary. Most Chromecast/Google TV hardware also has only one hardware video decoder,
+so decoding two clips at once to cross-fade them risks dropped frames or an outright failure —
+unverified either way, and the kind of thing worth measuring on a real device before building.
+If cross-fade is wanted, pre-rendering the sequence server-side (ffmpeg's `xfade` filter) and
+casting the result as one ordinary item avoids all of this.
+
 ## Why it is hosted here
 
 Cast receiver applications must be served over HTTPS with a valid certificate. The media
