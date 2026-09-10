@@ -31,7 +31,7 @@ d-pad doing nothing. It is put back to work here:
 |---|---|
 | left / right | step one frame back / forward (hold to scrub) |
 | centre, or the play-pause key | play / pause |
-| up / down | unbound — free for whatever is wanted |
+| up / down | previous / next item in the gallery |
 
 Play/pause goes through `PlayerManager` rather than the media element directly, so the phone's
 own transport stays in step with the television. Stepping does not: it is `currentTime`
@@ -40,6 +40,19 @@ arithmetic, for the same reason the phone's step button sends a message instead 
 Frame rate cannot be read from a `<video>`, so it arrives from the phone (which reads it off the
 decoder) and is remembered for the remote's use — a remote press can easily come before the
 phone has ever sent a step. It is 24 until told otherwise.
+
+Up and down move through the **Cast queue**, not through anything invented here. Giving each
+item the URLs of its neighbours would put a second copy of the gallery's ordering on the
+television, where it could drift from the phone's; the queue is already that ordering. "Cast
+all" has always loaded a real multi-item queue, and the phone now sends the surrounding items
+for a single cast too, so there is something to move through either way. `sendLocalMediaRequest`
+with `QUEUE_NEXT`/`QUEUE_PREV` is the supported way for a receiver to issue itself a media
+command, and it keeps `RemoteMediaClient`'s current item correct — which is what the phone reads
+to keep its own transport pointed at the right file.
+
+The centre button matches `Enter`, `Select`, space, Android's `KEYCODE_DPAD_CENTER` (23) and the
+media play/pause key. It was bound to `Enter` alone at first and did nothing on real hardware: a
+television remote is not a keyboard.
 
 The key handler runs in the capture phase and consumes what it handles, because the SDK's own
 key handling is still attached even with its controls hidden.
