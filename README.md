@@ -22,6 +22,28 @@ The phone sends JSON on `urn:x-cast:com.obyrne.comfyui`:
 { "type": "step", "forward": true, "fps": 24 }
 ```
 
+## The remote
+
+Hiding the platform's controls overlay takes the remote's playback UI with it, which leaves the
+d-pad doing nothing. It is put back to work here:
+
+| button | does |
+|---|---|
+| left / right | step one frame back / forward (hold to scrub) |
+| centre, or the play-pause key | play / pause |
+| up / down | unbound — free for whatever is wanted |
+
+Play/pause goes through `PlayerManager` rather than the media element directly, so the phone's
+own transport stays in step with the television. Stepping does not: it is `currentTime`
+arithmetic, for the same reason the phone's step button sends a message instead of a seek.
+
+Frame rate cannot be read from a `<video>`, so it arrives from the phone (which reads it off the
+decoder) and is remembered for the remote's use — a remote press can easily come before the
+phone has ever sent a step. It is 24 until told otherwise.
+
+The key handler runs in the capture phase and consumes what it handles, because the SDK's own
+key handling is still attached even with its controls hidden.
+
 ## Playlists come for free
 
 This page is built on the Cast Application Framework (`cast_receiver_framework.js`,

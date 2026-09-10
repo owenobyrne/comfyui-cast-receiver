@@ -95,7 +95,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.2';
+  var RECEIVER_VERSION = '2026-09-11.3';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -232,25 +232,87 @@
     750ms, and there is no sender-side API for scaling the picture at all. Done here they are
     just currentTime arithmetic and a CSS transform.
   */
+  /*
+    Frame rate is not something a <video> will tell you, so it arrives from the phone, which
+    reads it off the decoder. Remembered between messages because the d-pad handler below needs
+    it too and has nobody to ask -- a remote press can arrive before the phone has ever sent a
+    step. 24 until told otherwise, which is what these workflows produce and what the phone
+    itself falls back to.
+  */
+  var lastFps = 24;
+
+  function stepFrames(frames) {
+    var video = videoElement();
+    if (!video) return false;
+    video.pause();
+    video.currentTime = Math.max(0, video.currentTime + frames / lastFps);
+    status('step ' + frames + ' -> ' + video.currentTime.toFixed(3) + 's @ ' + lastFps + 'fps');
+    return true;
+  }
+
+  function togglePlayPause() {
+    // Through PlayerManager rather than the media element directly: this is the supported path
+    // and it keeps the sender's transport in step, so the phone's own play/pause button does
+    // not end up disagreeing with the television.
+    var playing = playerManager.getPlayerState() === cast.framework.messages.PlayerState.PLAYING;
+    if (playing) playerManager.pause(); else playerManager.play();
+    status(playing ? 'paused by remote' : 'playing by remote');
+    return true;
+  }
+
   context.addCustomMessageListener(NAMESPACE, function (event) {
     var data = event.data || {};
     switch (data.type) {
       case 'zoom':
         applyTransform(data.scale, data.x, data.y);
         break;
-      case 'step': {
-        var video = videoElement();
-        if (!video) return;
-        var fps = data.fps > 0 ? data.fps : 24;
-        video.pause();
-        video.currentTime = Math.max(0, video.currentTime + (data.forward ? 1 : -1) / fps);
-        status('step to ' + video.currentTime.toFixed(3) + 's');
+      case 'step':
+        if (data.fps > 0) lastFps = data.fps;
+        stepFrames(data.forward ? 1 : -1);
         break;
-      }
       default:
         status('unknown message: ' + JSON.stringify(data).slice(0, 120));
     }
   });
+
+  /*
+    The d-pad, put back to work.
+
+    Hiding the platform's controls overlay (see hidePlatformChrome) took the remote's playback
+    UI with it, leaving the d-pad doing nothing at all. It is a perfectly good transport, and
+    frame-stepping is the thing this receiver exists to make possible, so left/right step a
+    frame and the centre button plays and pauses. Holding a direction repeats, which scrubs.
+
+    Capture phase, and events are consumed once handled: the SDK still has its own key handling
+    attached even though its controls are hidden, and letting these through would mean competing
+    for the same press.
+
+    Both e.key and keyCode are checked because a television remote is not a keyboard and the
+    mapping is not something this can be tested against from a development machine.
+  */
+  function handleRemoteKey(event) {
+    var key = event.key;
+    var code = event.keyCode || event.which;
+    var handled = false;
+
+    if (key === 'ArrowLeft' || code === 37) {
+      handled = stepFrames(-1);
+    } else if (key === 'ArrowRight' || code === 39) {
+      handled = stepFrames(1);
+    } else if (key === 'Enter' || key === ' ' || key === 'MediaPlayPause' ||
+               code === 13 || code === 32 || code === 179) {
+      handled = togglePlayPause();
+    } else {
+      return;
+    }
+
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
+
+  window.addEventListener('keydown', handleRemoteKey, true);
 
   // Kept for the log line: a Chromecast loading plain http:// media from an https:// receiver
   // page is the assumption this whole setup rests on, it is now confirmed on real hardware, and
