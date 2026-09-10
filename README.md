@@ -53,6 +53,39 @@ is the first thing this deploy is meant to establish — Google's own default re
 exactly that today, so it is expected to work, but it had not been proven for a custom one.
 
 No address, credential or other detail of the private setup is baked into this page; the media
-URL arrives at load time from the phone.
+URL arrives at load time from the phone. That question is now settled — it does — and the
+`#status` overlay that existed to answer it has been removed.
 
-The `#status` overlay is diagnostic and should be removed once playback is confirmed.
+## The two overlays, and which is which
+
+Getting a clean picture meant killing two different things, and they are easy to confuse:
+
+- **The default receiver's metadata banner.** Gone by virtue of this receiver existing at all;
+  it was never ours to draw.
+- **The platform's `<tv-overlay>`** — the title and scrubber a TV puts up when playback starts
+  or pauses. This one survives into a custom receiver, because it is not the receiver's. The
+  CAF SDK creates it *after* load and swaps it into `cast-media-player`'s shadow DOM in place
+  of a `<tv-overlay-placeholder>`:
+
+  ```js
+  a.j = document.createElement("tv-overlay");
+  var d = a.B.querySelector("tv-overlay-placeholder");
+  d.parentNode.replaceChild(c, d);
+  ```
+
+  No CSS variable or `CastReceiverOptions` field turns it off, and shadow DOM means a rule in
+  this page's stylesheet cannot reach it. The fix is a `<style>` injected into the shadow root
+  (`hidePlatformChrome`), which matches the element whenever it appears. The selectors came
+  from reading the shipped `cast_receiver_framework.js`, not from guessing.
+
+  **The trade:** the TV's own remote loses its playback UI along with it. That suits this setup
+  — the phone is the remote — but it is a real consequence.
+
+## Verifying a change here
+
+There is no browser emulator: the page loads in Chrome, but `CastReceiverContext.start()` needs
+platform APIs only real hardware has. With a cast in progress the device opens port 9222, so
+`http://<tv-ip>:9222` in desktop Chrome gives console, elements and network against the live
+page — which is also where the `[comfyui-receiver]` log lines go now that nothing is drawn on
+screen. The port is closed when nothing is casting, which is why a scan finds nothing until you
+start.

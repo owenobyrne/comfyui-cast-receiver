@@ -31,36 +31,61 @@
     transform-origin: 50% 50%;
     will-change: transform;
   }
-
-  #status {
-    position: absolute;
-    left: 12px;
-    bottom: 12px;
-    font: 13px/1.4 system-ui, sans-serif;
-    color: rgba(255, 255, 255, 0.55);
-    background: rgba(0, 0, 0, 0.45);
-    padding: 6px 10px;
-    border-radius: 6px;
-    max-width: 80vw;
-    word-break: break-all;
-    /* Diagnostic only — remove once HTTP media playback is confirmed. */
-  }
 </style>
 </head>
 <body>
   <cast-media-player id="player"></cast-media-player>
-  <div id="status">receiver ready</div>
 
 <script>
 (function () {
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
   var playerManager = context.getPlayerManager();
-  var statusEl = document.getElementById('status');
 
+  /*
+    Console only. This used to also write to an on-screen div, which was useful exactly once —
+    while proving a Chromecast would load plain http:// media from an https:// receiver — and
+    was a permanent caption over the video ever after. With a cast in progress the TV opens
+    port 9222, so http://<tv-ip>:9222 in desktop Chrome gives the same messages with a console,
+    elements and network tabs around them. That is the better tool, and it costs the picture
+    nothing.
+  */
   function status(text) {
-    if (statusEl) statusEl.textContent = text;
     console.log('[comfyui-receiver]', text);
+  }
+
+  /*
+    The other overlay, and a harder one to find: on a TV platform the CAF SDK reaches into
+    cast-media-player's shadow DOM and replaces its <tv-overlay-placeholder> with a real
+    <tv-overlay> element — the title-and-scrubber bar the platform draws when playback starts
+    or pauses. It is not the metadata banner this receiver was written to escape (that one is
+    the *default receiver's*, and is already gone); it belongs to the TV, is created after the
+    page loads, and no CSS variable or receiver option turns it off. Verified by reading the
+    shipped SDK rather than guessing at selectors:
+
+        a.j = document.createElement("tv-overlay");
+        var d = a.B.querySelector("tv-overlay-placeholder");
+        d.parentNode.replaceChild(c, d);
+
+    Shadow DOM means a rule in the page's own stylesheet cannot reach it, so the rule is
+    injected into the shadow root instead. It is injected once and matches whenever the element
+    actually appears, since CSS applies to nodes added later.
+
+    The trade: the TV's own remote loses its playback UI along with it. That is the premise of
+    this receiver — the phone is the remote (see the cast transport in the android-comfyui
+    app) — but it is a real consequence, not a free win.
+  */
+  var chromeHidden = false;
+  function hidePlatformChrome() {
+    if (chromeHidden) return;
+    var player = document.getElementById('player');
+    var root = player && player.shadowRoot;
+    if (!root) return;
+    var style = document.createElement('style');
+    style.textContent = 'tv-overlay, tv-overlay-placeholder { display: none !important; }';
+    root.appendChild(style);
+    chromeHidden = true;
+    status('platform overlay suppressed');
   }
 
   /*
@@ -113,18 +138,23 @@
     }
   });
 
-  // The whole point of this first deploy: confirm the Chromecast will play a plain http:// URL
-  // from an https:// receiver page. Logged rather than assumed.
+  // Kept for the log line: a Chromecast loading plain http:// media from an https:// receiver
+  // page is the assumption this whole setup rests on, it is now confirmed on real hardware, and
+  // this is where you would see it stop being true.
   playerManager.setMessageInterceptor(
     cast.framework.messages.MessageType.LOAD,
     function (request) {
       var url = request && request.media && request.media.contentId;
+      // Also here, not only at startup: the shadow root exists by now even if it somehow did
+      // not when this script first ran.
+      hidePlatformChrome();
       status('LOAD ' + url);
       return request;
     }
   );
 
   playerManager.addEventListener(cast.framework.events.EventType.MEDIA_STATUS, function (e) {
+    hidePlatformChrome();
     if (e.mediaStatus && e.mediaStatus.playerState) {
       status('state ' + e.mediaStatus.playerState);
     }
@@ -141,6 +171,7 @@
   options.disableIdleTimeout = false;
 
   context.start(options);
+  hidePlatformChrome();
   status('receiver started');
 })();
 </script>
