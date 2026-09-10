@@ -58,28 +58,45 @@ URL arrives at load time from the phone. That question is now settled — it doe
 
 ## The two overlays, and which is which
 
-Getting a clean picture meant killing two different things, and they are easy to confuse:
+Two different things draw over the video, and confusing them wasted a deploy:
 
 - **The default receiver's metadata banner.** Gone by virtue of this receiver existing at all;
   it was never ours to draw.
-- **The platform's `<tv-overlay>`** — the title and scrubber a TV puts up when playback starts
-  or pauses. This one survives into a custom receiver, because it is not the receiver's. The
-  CAF SDK creates it *after* load and swaps it into `cast-media-player`'s shadow DOM in place
-  of a `<tv-overlay-placeholder>`:
+- **The platform's playback overlay** — the title and scrubber a television puts up when
+  playback starts or pauses. This one survives into a custom receiver, because it is not the
+  receiver's. There is no option for it, and which element it *is* depends on the device.
 
-  ```js
-  a.j = document.createElement("tv-overlay");
-  var d = a.B.querySelector("tv-overlay-placeholder");
-  d.parentNode.replaceChild(c, d);
-  ```
+Reading the shipped `cast_receiver_framework.js`, the SDK classifies the device (`ie()`) and
+gives each class a different UI:
 
-  No CSS variable or `CastReceiverOptions` field turns it off, and shadow DOM means a rule in
-  this page's stylesheet cannot reach it. The fix is a `<style>` injected into the shadow root
-  (`hidePlatformChrome`), which matches the element whenever it appears. The selectors came
-  from reading the shipped `cast_receiver_framework.js`, not from guessing.
+| `ie()` | device | overlay |
+|---|---|---|
+| 1 | plain non-touch | `document.createElement("tv-overlay")`, swapped into the shadow DOM in place of `<tv-overlay-placeholder>` |
+| 2 | non-touch **with a d-pad** | `a.A(true).getTouchControlsElement()`, built by `/media_player.js` |
+| 3, 4 | touch / Android with touch | touch-optimised controls |
+| 5, 6 | audio-only, automotive | none / other |
 
-  **The trade:** the TV's own remote loses its playback UI along with it. That suits this setup
-  — the phone is the remote — but it is a real consequence.
+**A Google TV is type 2, not type 1** — no touch, but a d-pad remote. The first attempt here hid
+`tv-overlay` by name and changed nothing on real hardware for exactly that reason. Worse, type
+2's element comes from `/media_player.js`, which is served by the **device's own web server**
+(hence the `port-for-web-server` platform value) and 404s on gstatic — so it cannot be read, or
+even named, from a development machine.
+
+There is a `dpad-controls-overlay-disabled` platform value that skips the controls path
+entirely, but it is read *from* the device and a receiver page cannot set it.
+
+So `hidePlatformChrome()` names nothing. It keeps the `<video>` and its ancestor chain and hides
+everything else inside the player, which does not depend on knowing what any of it is called,
+and repeats on a `MutationObserver` because the controls are built lazily, long after the page
+script runs.
+
+**Two consequences:**
+
+- The TV's own remote loses its playback UI. That suits this setup — the phone is the remote —
+  but it is a real loss.
+- **If an overlay survives this, it is not in the page.** It would be Google TV system UI drawn
+  above the web view, which no receiver-side change can reach. The version badge is how to tell
+  that apart from a stale cached page.
 
 ## The build badge
 

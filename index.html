@@ -95,7 +95,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.1';
+  var RECEIVER_VERSION = '2026-09-11.2';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -114,37 +114,92 @@
   }
 
   /*
-    The other overlay, and a harder one to find: on a TV platform the CAF SDK reaches into
-    cast-media-player's shadow DOM and replaces its <tv-overlay-placeholder> with a real
-    <tv-overlay> element — the title-and-scrubber bar the platform draws when playback starts
-    or pauses. It is not the metadata banner this receiver was written to escape (that one is
-    the *default receiver's*, and is already gone); it belongs to the TV, is created after the
-    page loads, and no CSS variable or receiver option turns it off. Verified by reading the
-    shipped SDK rather than guessing at selectors:
+    Suppressing the platform's playback overlay — the title-and-scrubber bar a television draws
+    when playback starts or pauses. It is not the metadata banner this receiver exists to
+    escape: that one belongs to the *default* receiver and was never drawn here. This one
+    belongs to the device, and survives into a custom receiver.
 
-        a.j = document.createElement("tv-overlay");
-        var d = a.B.querySelector("tv-overlay-placeholder");
-        d.parentNode.replaceChild(c, d);
+    Finding it took reading the shipped cast_receiver_framework.js, because there is no option
+    for it. The SDK classifies the device (`ie()`): 5 audio-only, 6 automotive, 4 android with
+    touch, 3, 2 non-touch with a d-pad, 1 plain non-touch. Each type gets a different UI:
 
-    Shadow DOM means a rule in the page's own stylesheet cannot reach it, so the rule is
-    injected into the shadow root instead. It is injected once and matches whenever the element
-    actually appears, since CSS applies to nodes added later.
+      ie()===1  ->  document.createElement("tv-overlay"), swapped into the shadow DOM in place
+                    of <tv-overlay-placeholder>
+      ie()===2  ->  a.A(true).getTouchControlsElement(), built by /media_player.js — which is
+                    served by the *device's own* web server (hence the `port-for-web-server`
+                    platform value), not by gstatic, and so cannot be read from a dev machine
 
-    The trade: the TV's own remote loses its playback UI along with it. That is the premise of
-    this receiver — the phone is the remote (see the cast transport in the android-comfyui
-    app) — but it is a real consequence, not a free win.
+    A Google TV is not touch but has a d-pad, which makes it type 2, not type 1. An earlier
+    attempt here hid `tv-overlay` alone and did nothing on real hardware for exactly that
+    reason. There is a `dpad-controls-overlay-disabled` platform value that skips the controls
+    path entirely, but it is read *from* the device and a receiver page cannot set it.
+
+    Since the type-2 element cannot be named from here, nothing is named. The video's own
+    ancestor chain is kept and everything else the SDK puts in the player is hidden, which does
+    not depend on knowing what any of it is called. A MutationObserver repeats it, because the
+    controls are created lazily, well after this runs.
+
+    Two things to know if this needs revisiting:
+    - The TV's own remote loses its playback UI along with the overlay. That is the premise
+      here — the phone is the remote — but it is a real consequence.
+    - If the overlay survives *this*, it is not in the page at all: it is Google TV system UI
+      drawn above the web view, and no receiver-side change can reach it. The version badge in
+      the corner is how to tell a stale page apart from a fix that did not work.
   */
-  var chromeHidden = false;
+  var KEEP_TAGS = { SCRIPT: 1, STYLE: 1, LINK: 1, TEMPLATE: 1, 'CAST-MEDIA-PLAYER': 1 };
+
+  function hideChromeIn(root) {
+    var video = root.querySelector('video');
+    if (!video) return false;
+    // The video and everything containing it has to stay; the rest is chrome.
+    var keep = [];
+    for (var n = video; n && n !== root; n = n.parentElement) keep.push(n);
+    var all = root.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i];
+      if (KEEP_TAGS[el.tagName]) continue;
+      if (el === video || keep.indexOf(el) !== -1) continue;
+      if (el.style.display !== 'none') el.style.display = 'none';
+    }
+    return true;
+  }
+
+  function hideForeignBodyNodes() {
+    var kids = document.body.children;
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i];
+      if (el.id === 'build' || KEEP_TAGS[el.tagName]) continue;
+      if (el.style.display !== 'none') el.style.display = 'none';
+    }
+  }
+
+  var observing = false;
   function hidePlatformChrome() {
-    if (chromeHidden) return;
     var player = document.getElementById('player');
     var root = player && player.shadowRoot;
     if (!root) return;
-    var style = document.createElement('style');
-    style.textContent = 'tv-overlay, tv-overlay-placeholder { display: none !important; }';
-    root.appendChild(style);
-    chromeHidden = true;
-    status('platform overlay suppressed');
+
+    if (!observing) {
+      // Declarative first pass: covers the type-1 element by name, and anything the SDK adds
+      // to the two levels of its own template that is not part of it. CSS applies to nodes
+      // added later, which the sweep below cannot do on its own.
+      var style = document.createElement('style');
+      style.textContent =
+        'tv-overlay, tv-overlay-placeholder { display: none !important; }' +
+        '#castPlayer > :not(.background):not(.foreground) { display: none !important; }';
+      root.appendChild(style);
+
+      new MutationObserver(function () {
+        hideChromeIn(root);
+        hideForeignBodyNodes();
+      }).observe(root, { childList: true, subtree: true });
+      new MutationObserver(hideForeignBodyNodes).observe(document.body, { childList: true });
+      observing = true;
+      status('platform chrome suppression armed');
+    }
+
+    hideChromeIn(root);
+    hideForeignBodyNodes();
   }
 
   /*
