@@ -81,6 +81,26 @@ Getting a clean picture meant killing two different things, and they are easy to
   **The trade:** the TV's own remote loses its playback UI along with it. That suits this setup
   — the phone is the remote — but it is a real consequence.
 
+## The build badge
+
+The bottom-left corner shows the ComfyUI mark and a version, e.g. `2026-09-11.1`. It answers
+exactly one question: which build of this page the device is actually running. Cast devices hold
+a receiver page across sessions, so "I pushed a fix and nothing changed" has two explanations,
+and without a visible marker there is no telling them apart from the sofa.
+
+`RECEIVER_VERSION` at the top of the script is the value, **and it is hand-maintained — bump it
+whenever this file changes.** A version that silently stops moving is worse than none: it reads
+as proof the device is current while proving nothing. It is a date rather than a serial because
+the question is always "is this recent?", which a date answers without having to remember what
+the current number should be.
+
+Stamping it automatically at deploy time would remove that failure mode, but Pages publishes
+this branch directly with no build step; swapping to an Actions-based deploy is a change to how
+the live receiver ships and worth doing deliberately rather than as a side effect.
+
+The icon is the app's own mark, inlined as a data URI so this page stays a single self-contained
+file with no second request to 404.
+
 ## Verifying a change here
 
 There is no browser emulator: the page loads in Chrome, but `CastReceiverContext.start()` needs
