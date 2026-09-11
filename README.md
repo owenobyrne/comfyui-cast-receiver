@@ -29,9 +29,24 @@ d-pad doing nothing. It is put back to work here:
 
 | button | does |
 |---|---|
-| left / right | step one frame back / forward (hold to scrub) |
+| left / right, tapped | step one frame back / forward |
+| left / right, held | play at half speed, forward or backward |
 | centre, or the play-pause key | play / pause |
 | up / down | previous / next item in the gallery |
+
+Tap and hold are told apart by `event.repeat`, which is all a d-pad gives you. The first press
+always steps, so a tap is never delayed waiting to see whether it becomes a hold; if repeats
+start arriving, motion takes over from where the step left off. Releasing restores the rate and
+whatever the clip was doing beforehand, rather than leaving it playing or paused as a side
+effect.
+
+Forward uses the video's own `playbackRate`. Backward cannot: a negative `playbackRate` is not
+supported, so reverse is a seek loop that walks `currentTime` back by however much wall clock
+has passed. It ticks at 100ms rather than per frame, because a television seeking backwards is
+decoding far more than it appears to.
+
+Repeats are **ignored** for up/down and for play/pause. Holding down would otherwise tear
+through the gallery an item per repeat with no way to stop on the one you wanted.
 
 Play/pause goes through `PlayerManager` rather than the media element directly, so the phone's
 own transport stays in step with the television. Stepping does not: it is `currentTime`

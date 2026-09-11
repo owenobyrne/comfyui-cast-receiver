@@ -95,7 +95,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.4';
+  var RECEIVER_VERSION = '2026-09-11.5';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -322,26 +322,83 @@
     return true;
   }
 
+  /*
+    Tap versus hold, on a d-pad that only reports key repeats.
+
+    A tap of left/right steps one frame, which is what this receiver exists for. Holding one
+    runs at half speed instead -- fast enough to cover ground, slow enough to see. The two are
+    told apart by `event.repeat`: the first press is always a tap and always steps, and if
+    repeats start arriving the press becomes a hold and motion takes over from where the step
+    left it. Nothing has to be timed, and a tap is never delayed waiting to find out whether it
+    was going to become a hold.
+
+    Forward is the video's own playbackRate. Backward cannot be: a negative playbackRate is not
+    supported, so reverse is walked by hand on a timer, moving currentTime by however much wall
+    clock has passed at the same half speed. It is a seek loop rather than playback, which is
+    why it ticks at REVERSE_TICK_MS rather than every frame -- a television seeking backwards is
+    decoding a lot more than it looks.
+
+    Releasing restores the rate and whatever the clip was doing before the hold, rather than
+    leaving it playing or paused by side effect.
+  */
+  var HOLD_RATE = 0.5;
+  var REVERSE_TICK_MS = 100;
+  var hold = null;   // { forward, wasPlaying, timer }
+
+  function startHold(forward) {
+    var video = videoElement();
+    if (!video || hold) return false;
+    hold = { forward: forward, wasPlaying: !video.paused, timer: null };
+    if (forward) {
+      video.playbackRate = HOLD_RATE;
+      video.play();
+    } else {
+      video.pause();
+      hold.timer = window.setInterval(function () {
+        var v = videoElement();
+        if (!v) return;
+        v.currentTime = Math.max(0, v.currentTime - HOLD_RATE * (REVERSE_TICK_MS / 1000));
+      }, REVERSE_TICK_MS);
+    }
+    status('hold ' + (forward ? 'forward' : 'back') + ' at ' + HOLD_RATE + 'x');
+    return true;
+  }
+
+  function endHold() {
+    if (!hold) return;
+    var video = videoElement();
+    if (hold.timer) window.clearInterval(hold.timer);
+    if (video) {
+      video.playbackRate = 1;
+      if (hold.wasPlaying) video.play(); else video.pause();
+    }
+    status('hold released');
+    hold = null;
+  }
+
   function handleRemoteKey(event) {
     var key = event.key;
     var code = event.keyCode || event.which;
+    var left = key === 'ArrowLeft' || code === 37;
+    var right = key === 'ArrowRight' || code === 39;
     var handled = false;
 
-    if (key === 'ArrowLeft' || code === 37) {
-      handled = stepFrames(-1);
-    } else if (key === 'ArrowRight' || code === 39) {
-      handled = stepFrames(1);
+    if (left || right) {
+      // First press steps; the auto-repeats that follow mean it is being held.
+      handled = event.repeat ? (startHold(right) || true) : stepFrames(right ? 1 : -1);
     } else if (key === 'ArrowDown' || code === 40) {
-      handled = queueStep(true);
+      // Repeats deliberately ignored: holding down would otherwise tear through the gallery an
+      // item per repeat, and there is no way to stop on the one you wanted.
+      handled = event.repeat ? true : queueStep(true);
     } else if (key === 'ArrowUp' || code === 38) {
-      handled = queueStep(false);
+      handled = event.repeat ? true : queueStep(false);
     } else if (key === 'Enter' || key === ' ' || key === 'Select' || key === 'MediaPlayPause' ||
                // 13 Enter, 32 space, 23 Android's KEYCODE_DPAD_CENTER, 179 media play/pause.
                // A television remote is not a keyboard: the centre button reaches the web view
                // as any of these depending on the device, and it was bound to Enter alone
                // before, which is the likeliest reason it did nothing.
                code === 13 || code === 32 || code === 23 || code === 179) {
-      handled = togglePlayPause();
+      handled = event.repeat ? true : togglePlayPause();
     } else {
       return;
     }
@@ -352,7 +409,15 @@
     }
   }
 
+  function handleRemoteKeyUp(event) {
+    var code = event.keyCode || event.which;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || code === 37 || code === 39) {
+      endHold();
+    }
+  }
+
   window.addEventListener('keydown', handleRemoteKey, true);
+  window.addEventListener('keyup', handleRemoteKeyUp, true);
 
   // Kept for the log line: a Chromecast loading plain http:// media from an https:// receiver
   // page is the assumption this whole setup rests on, it is now confirmed on real hardware, and
