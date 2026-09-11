@@ -35,84 +35,6 @@
   }
 
   /*
-    A build marker, not a status readout -- the difference matters, since the diagnostic caption
-    that used to live in this corner was removed for good reason. This says one thing only: which
-    build of this page the device is actually running. A Cast device will happily hold a receiver
-    page across sessions, so "I pushed a fix and nothing changed" has two explanations, and
-    without this there is no way to tell them apart from the sofa.
-
-    Sized in vmin rather than px: a receiver viewport is 1280x720 on some devices and 1920x1080
-    on others, and this should be the same size on the screen either way.
-  */
-  #build {
-    position: absolute;
-    /* Kept off the very edge -- televisions overscan, and a corner badge is exactly what gets
-       cropped. This is inside the action-safe area on a 4:3-era overscanning set. */
-    left: 3vmin;
-    bottom: 3vmin;
-    display: flex;
-    align-items: center;
-    gap: 1vmin;
-    padding: 0.8vmin 1.4vmin;
-    border-radius: 1vmin;
-    background: rgba(0, 0, 0, 0.45);
-    font: 500 1.9vmin/1 system-ui, -apple-system, sans-serif;
-    /* The mark's own colour, sampled from the app's icon, so the two read as one object. */
-    color: #f5fd75;
-    opacity: 0.7;
-    pointer-events: none;
-    /* The badge is a later sibling of cast-media-player and positioned, so it would paint on
-       top regardless; stated explicitly because the player element's internals are not ours and
-       a future SDK is free to introduce a stacking context. */
-    z-index: 1;
-  }
-
-  /*
-    A and B loop markers. Marked data-receiver-ui like everything of ours, or the chrome sweep
-    hides them -- it hid the diagnostic readout for exactly this reason.
-  */
-  #loopMarks {
-    position: absolute;
-    left: 3vmin;
-    bottom: 9vmin;
-    display: flex;
-    gap: 1vmin;
-    pointer-events: none;
-    z-index: 1;
-  }
-
-  .loop-mark {
-    display: flex;
-    align-items: center;
-    gap: 0.8vmin;
-    padding: 0.8vmin 1.4vmin;
-    border-radius: 1vmin;
-    background: rgba(0, 0, 0, 0.55);
-    font: 600 1.8vmin/1 system-ui, -apple-system, sans-serif;
-    color: #f5fd75;
-  }
-
-  .loop-mark[hidden] { display: none; }
-
-  .loop-mark i {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.6vmin;
-    height: 2.6vmin;
-    border-radius: 50%;
-    background: #f5fd75;
-    color: #000;
-    font-style: normal;
-  }
-
-  #build .mark {
-    width: 2.6vmin;
-    height: 2.6vmin;
-    background: var(--comfy-mark) center / contain no-repeat;
-  }
-
-  /*
     The title card, at the start of a newly playing clip only.
 
     Choreographed entirely in CSS keyframes over one duration rather than by a chain of timers:
@@ -128,10 +50,11 @@
   #banner {
     position: absolute;
     left: 3vmin;
-    bottom: 15vmin;
+    bottom: 9vmin;
     display: flex;
     align-items: center;
-    gap: 1vmin;
+    /* No gap: the clip below tucks under the mark, which is what the name emerges from. */
+    gap: 0;
     pointer-events: none;
     visibility: hidden;
     z-index: 2;
@@ -144,9 +67,25 @@
     height: 4.6vmin;
     background: var(--comfy-mark) center / contain no-repeat;
     transform: scale(0);
+    /* Above the clip, so the name is hidden by the mark rather than beside it. */
+    position: relative;
+    z-index: 1;
+  }
+
+  /*
+    The travelling name needs something to come out *of*. A transform alone only nudged it
+    sideways -- nothing was clipping it, so it read as a fade with a wobble. This is the window:
+    it starts tucked under the mark, hides anything to the left of its own edge, and the name
+    rides out of it.
+  */
+  #banner .nameClip {
+    overflow: hidden;
+    margin-left: -2.3vmin;
+    padding-left: 2.3vmin;
   }
 
   #banner .name {
+    display: block;
     padding: 0.9vmin 1.5vmin;
     border-radius: 1vmin;
     background: rgba(0, 0, 0, 0.58);
@@ -157,8 +96,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
     opacity: 0;
-    /* Parked behind the mark, which is where it slides out from. */
-    transform: translateX(-2.6vmin);
+    /* Its own width to the left: entirely inside the clip, behind the mark. */
+    transform: translateX(-100%);
   }
 
   #banner.show .mark { animation: markPop 2200ms both; }
@@ -174,12 +113,13 @@
   }
 
   @keyframes namePeek {
-    0%   { opacity: 0; transform: translateX(-2.6vmin); }
-    14%  { opacity: 0; transform: translateX(-2.6vmin); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
-    31%  { opacity: 1; transform: translateX(0); }
+    0%   { opacity: 0; transform: translateX(-100%); }
+    14%  { opacity: 0; transform: translateX(-100%); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+    24%  { opacity: 1; }
+    34%  { opacity: 1; transform: translateX(0); }
     76%  { opacity: 1; transform: translateX(0); animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0); }
-    87%  { opacity: 0; transform: translateX(-2.6vmin); }
-    100% { opacity: 0; transform: translateX(-2.6vmin); }
+    87%  { opacity: 0; transform: translateX(-100%); }
+    100% { opacity: 0; transform: translateX(-100%); }
   }
 
   /* Set by the zoom message handler below; the video itself is what gets transformed. */
@@ -191,13 +131,9 @@
 </head>
 <body>
   <cast-media-player id="player"></cast-media-player>
-  <div id="build" data-receiver-ui>
-    <span class="mark"></span>
-    <span id="build-version"></span>
-  </div>
   <div id="banner" data-receiver-ui>
     <span class="mark"></span>
-    <span class="name"></span>
+    <span class="nameClip"><span class="name"></span></span>
   </div>
   <div id="loopMarks" data-receiver-ui>
     <span class="loop-mark" id="markA" hidden><i>A</i><b></b></span>
@@ -220,7 +156,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.14';
+  var RECEIVER_VERSION = '2026-09-11.15';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -837,9 +773,6 @@
   options.customNamespaces[NAMESPACE] = cast.framework.system.MessageType.JSON;
   // Without this the receiver shuts down as soon as the sender disconnects briefly.
   options.disableIdleTimeout = false;
-
-  var versionEl = document.getElementById('build-version');
-  if (versionEl) versionEl.textContent = RECEIVER_VERSION;
 
   context.start(options);
   hidePlatformChrome();
