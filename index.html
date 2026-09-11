@@ -95,7 +95,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.6';
+  var RECEIVER_VERSION = '2026-09-11.7';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -349,7 +349,7 @@
   var HOLD_GAP_MS = 250;     // presses closer together than this mean the button is held
   var HOLD_DELAY_MS = 400;   // no repeats at all: hold begins if the key has not come up
   var HOLD_IDLE_MS = 320;    // repeats stopped arriving, so it has been released
-  var REVERSE_TICK_MS = 100;
+  var REVERSE_STALL_MS = 400;   // only a backstop: the loop is normally driven by 'seeked'
 
   var hold = null;
   var pressTimer = null;
@@ -378,12 +378,44 @@
         if (v && v.playbackRate !== HOLD_RATE) v.playbackRate = HOLD_RATE;
       }, 250);
     } else {
-      video.pause();
-      hold.timer = window.setInterval(function () {
+      /*
+        Reverse cannot be playback -- a negative playbackRate is not supported -- so it is a
+        seek loop. The first version fired those seeks on a fixed interval and reproduced the
+        very bug this was meant to fix: seeking backwards means decoding from the preceding
+        keyframe every time, the television could not keep up, and the requests queued and only
+        landed once the button came up.
+
+        So the loop is driven by completion rather than by a clock: the next seek is issued when
+        the last one reports `seeked`, which means there is never more than one outstanding and
+        every one of them is actually shown. How fast the device can do that is then its own
+        business.
+
+        Speed stays honest regardless, because each target is computed from elapsed wall clock
+        rather than by subtracting a fixed amount per step. A slow device drops frames and still
+        travels at half speed; a fast one is simply smoother.
+      */
+      playerManager.pause();
+      hold.startedAt = new Date().getTime();
+      hold.startPos = video.currentTime;
+
+      hold.tick = function () {
+        if (!hold) return;
         var v = videoElement();
         if (!v) return;
-        v.currentTime = Math.max(0, v.currentTime - HOLD_RATE * (REVERSE_TICK_MS / 1000));
-      }, REVERSE_TICK_MS);
+        var elapsed = (new Date().getTime() - hold.startedAt) / 1000;
+        var target = Math.max(0, hold.startPos - elapsed * HOLD_RATE);
+        if (target <= 0 && v.currentTime <= 0) return;   // at the start, nothing left to do
+        // fastSeek is cheaper where it exists (it settles for the nearest keyframe, which is
+        // all a reverse scrub needs). Chrome does not implement it, hence the fallback.
+        if (typeof v.fastSeek === 'function') v.fastSeek(target); else v.currentTime = target;
+      };
+
+      hold.onSeeked = function () { if (hold) hold.tick(); };
+      video.addEventListener('seeked', hold.onSeeked);
+      // A watchdog in case a seek never reports completion, which would otherwise stall the
+      // loop for as long as the button is held.
+      hold.timer = window.setInterval(function () { if (hold) hold.tick(); }, REVERSE_STALL_MS);
+      hold.tick();
     }
     status('hold ' + (forward ? 'forward' : 'back') + ' at ' + HOLD_RATE + 'x');
     return true;
@@ -395,6 +427,7 @@
     var video = videoElement();
     if (hold.timer) window.clearInterval(hold.timer);
     if (hold.rateTimer) window.clearInterval(hold.rateTimer);
+    if (hold.onSeeked && video) video.removeEventListener('seeked', hold.onSeeked);
     if (video) {
       video.playbackRate = 1;
       if (hold.wasPlaying) playerManager.play(); else playerManager.pause();
