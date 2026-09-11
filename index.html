@@ -59,27 +59,6 @@
     z-index: 1;
   }
 
-  /*
-    A temporary diagnostic readout. The permanent status caption was removed for good reason,
-    and this is not it coming back: it is on only while DEBUG_HUD is true, and exists because
-    the device has never opened port 9222, so the television is the only instrument available
-    for finding out what the d-pad actually does. Turn it off once that is answered.
-  */
-  #hud {
-    position: absolute;
-    right: 3vmin;
-    top: 3vmin;
-    padding: 1vmin 1.4vmin;
-    border-radius: 1vmin;
-    background: rgba(0, 0, 0, 0.6);
-    font: 500 1.7vmin/1.5 ui-monospace, monospace;
-    color: #f5fd75;
-    white-space: pre;
-    text-align: left;
-    pointer-events: none;
-    z-index: 2;
-  }
-
   #build img {
     width: 2.6vmin;
     height: 2.6vmin;
@@ -99,7 +78,6 @@
     <img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAAOrElEQVR4nO1de3RU5bXf3+OcOcNMJpOQNMQkvJS3CF2I9vposbaU+qgLFqs+eml7tRd6+7AvFhXuXXWtq7fXW0tXW6suba1FRdtKi1at0lsU0d4rYLlWhCAgJEESAklIJpOZ8/q+7659JtOmLWgmOWdyEufHOit/hMw559t7/76997f3HoASSiihhBJKKKGEEkoo4b0GAqMcms6A0ZF7DaUUCKHAdSW8Z0AIgK4z7woLuEa95xrzFkAI8bQujwXnT4hNnFxeAUqBAlCkSO/k3YsAyWZc+9DBU6cOHTzl5J4PrWKMCoBSAlIq7yVnza6K4AI8+MhVGxfOm7LMWxLvKu4r2ZCFJza/ufZb67Z/78jhHhupCBVksEIYNQIgBIBx6glg0aJJlc/+/tpOHRhklQOOI+3+/9UvhOJAKSUZo1znlLc09+y6/EOPXdTSnHI1jeIzDeozOIwSGFENshkHrl8xe+oD9y3dZbu2BA4Uf8c51UdKp4SQLgMKZ08av5DxnDeANDlYeC8Qdmga9Rb/CzcvmPeD9Vc+o0dlpVJS2q6QhfBtECCEUksJaSsX7rp38e1z5lYbqP34zKNeAGSAIl13w+zJX1m94MHq6tjM7j4zhaZPKRnx56cUKCigtpDysg9PWjOhNhbDPQD3q0H9PYwCOI6ET94w87PTGya8vzPTk4pGeQJCBlxuKQH/FYRRIYD6hjJWU1s2UwiwScj8Blx0SghwRunDD+258ciRnhRqPwZno3oTJv3+PtLQTSvnXzZ1cuIiwmx9sNxaLOBexAinHBjc9q2XH2lrTYtIhIFliUH9fbje5nT8Twh8cFHD8qrKeENWChRMKJUGw8CKSkMrNBALvQAYJTB5cvmFHDg4tsx4m16IgM6ABAWdqewJx855ZYU4ZqF6mdPBS3J5uQePkkKV8ZJSSVQQx1Xytf9re7w37eR4pwATCKU5M5ZLOcTiOvncqnkL4uWRBhcc4JwYECJIqVwNuN6TTrf/2ze339LZkRWUEXBdNbotgPb70JWVBvv66gseTiaMKku4XtgPIYKS4BJFpZRg79zRlnZs8XfJwtAJABcXNfydLs6pZ8WplCUqxkenYqgvhQwV/SAYA06IpJYl+hKJSC4DUWBkXjSNyudHkFreDdms6/2cOWt8nPF+rydc7j/SjB3VNf1kb6brsUffWJfNOp7ie0nxMAogb5box2vamQ9SNI0Sx5Fq1pzxsR/dv/ghDPMdgqZNQ0WXQkhTA0M/9Oax59aufvHJvJLJQQZgRRMAKv7AyPAbt1x46bLlM77unWiAkoT8dT4HI11CgFUkI/W1DYn3K6k8qwmb+4lAr2y4ucBABWAYDExTePTx3PPX/6C6Ojqxrr5s4fhktA5/r0B5Cz4Q+SMVvBxADzucoAwMQhS1bJkpNPgqigDGxTTI9DlwVn2MPfjAstsWXzbxZgANJFhgyhzHnwleUqtfFGHUfMsSaYNF+dZtB+9ad8uL6/IWXoj3E6gAIgbzFn/m7MrIt2//6FcXL56xtts8lZEqIzljOqXvnk6gIUg1nw5oma7rmtFovKq5JdW4c0drGr22oZ7E+S4A1AbLFIAHE7fdtugbS6+Zd3t79/H2skSkJqRhR0HImiJVUVZW1Xjg8O9e3n70BcPgYNuDS7ydDr47d6gNifII2fjLq9cv+fD8r7V3t7YlysfVDsU8wwKkxNx+BWBwTokw7BtX/mruQz/dc6CQzGegFpDfiDB3s2bdBz5x/sLaFRnZ5cZikerRvPiEoFKhD0w9lyCbsTt+88y+O3bvOt5SSN6/qBR0/sLaJVVl5VXd2d60HuFxCEgrpXyX3XzIyIW0BH0ASiljhOqggalsuPTijRP37+/IKpXLVw0msCySAHIPjQ+k6TQKwEBKEkj6wBXS5YzyOC8bUA3hJ3BRGZiQhta3e1/b+vumu3+4/tVHMNncuK/D8vNOvgggn4BC7V+2fMbEs+ri50mw0XR9tzAhpUxoBm/t7Dnyj6ue/CAuFd53+CHRX4AxIiWE9PU5Vjpt2y3Nqb6jLak/Wxvmq4ZLPXn4skCYJBAitwHftHL+V+trE/NsZePC+KqhjiNNg0f0A291bL/11pc+s/lXB96GIiFfh+o4wrfFR/iqoSiAKVOTF0UYp72O6VLCfPU7XVeaum7ojW92/OHnG/c1oQuImyQeQwVxWJ8vMURaHY6rWQQB5Pg/k3EgFteqCJbKSHCpBr4eoFCaS/9GDM3ApJ5pugUXw4YNPrqhBJLJCPprPKgSQCOixbsyPaldO9v+O197OZoXHzFsikBNFELChNoY2/SbZfeWJ40GE2xgjPnK/7Yt0lEah0cf3vvF2299+dkw9QaMqABQ85EGkkmDX3xJwyqdUeoKKYNIoilFZKbP6Q2Kj0epAHI00NWZdXh/IllJ/6sXCCGcEOEFRp7bOdq5xw8B4EJg6qGyMkqWLp9xrqvQX/C/SUJKkBGdGalMb3dLS0+zd5exsf7DEwDnuYDknGkVsdVrL3jYlRKEkqit1O/yjyiP8KeeOfgfL2xt3pcvWxkLoH7wf0WlEZ1YlzwPqQc102/+l1K5FKLw7NNvbX7j9ZMmbsAlAeQk4FEBQYJWkYB1UkI0qmFf2JihH4QvmiqElJg5hICg6XRc+6nOY21t6a58ZDpWQIfj/9uWgI99fEr1f3530c+y0vQKVf3efAkBiFIdbv7Clku2bW1u13VsgCu5oZ4HhItz3vyaaQvOnXKl5TgZPxf/ryCp27i363hfn6NyLiiMGQzZArwkmFTQ1+dkhCC2dFV/q6h/IASot8dQySsqI4bXJzyGFn/IAsDFR/ezrr6MzZpdOZcyV6dsYKuoTw9Hcz/bOlPNPT2W5XF/SQA59xOTYcuvm7Xg2uvm3GlhuYnPpeNSgmQE3U2QG36650utrX1WXvBjCUO0gFyke845yenV5WU1piVN/6Nf5Wr9ae7139n525Mn+iSeN2DibyxhyBSEfFyWiFRgtZsQwg6qgk154wBCVhrtI4a8aMjHZtbpy7UO+X34roBphGNtaPOR1Etjye8flgDyjXPIwys/P//cRZdPWmmrLOg6jft+9kt02n4iffCLq7Ys6+mxsIq6oNaf0YIhBU5IPys+O3f1jEkTLuyxe22N+3v4IiW4DDQ41WU2bd/W0o33w3pT4WKiL5iAG5VqJPaXAgWQ2xTxQaVUAjvXhQumxsFXAVBKuKscqBofnXzFVWfX/Pbpt9rN/q6ZIOFnuUlgFoA0VFMTo/G4Xk2Z0in1PwDTNGpYyoKa6vi0Rx+/punqJZtqOzszpleW6fq3IeROLghgwdXx42m7u8vEKVhFjbRJodOqMBX84w0f/8o1S6ffEY1ww3KEG1T3okI6EtKNazoPouwEaz0pMMhIG+67Z/e1/7pm2y+xP62YQhj0WzGW88GjUQ67/vRP22ZPq/5Q2rECW/yB4AG2h+UGnSkgLph/eOXtDZdf+ujni0lHBb8ZeiMVFZGJqJEYLEERYLtCBnY5rus4rhvhzPiHS+pWffeuj3wyWWEQtHZUuqBBh2IruEkWkycpJTSoCy2YMcZTjmPjBLTP3TTvx8mkwfD9ihEAFiDiv6y466gsId5R2OhveekHAUVBEZmI6gnc7KFIoIWuP/blH2nu3uEoAQw9iADS0CMFTH+bQtjFjLwHLYA85WAZysYN++7sOJU5GtcNHbxhCSgX9Y4XjBJojOpDmYAbuAByA1Nz6YD77tm957ln3vqvrG2lsQQFW3h0zs54abwIu5lPKHTUwHBR0MIMrEb7l3/ecveaNc9fevjQqa19aacLh6ie6dJC3h0p8eyBUS5AwrHW9D7Hyfmfxai+G5IPj5aAnYEP3P+n155+6tCVEZ0RfhpnnXNGXFeouoZE2aYnl7VGNMbR9QtbD7BSUnKq0azlmM+/0HxPNut6xQDFmM8yJAF47UiMeFNNmg73eEOr3wlNTSmr40Rmf11d/FxcfG/SYMg64Gn/BKzWY+mmjpNZtIg/B59B33dIwKkgmJ7A8pT8KPm/vWIxDbCPtmFiQh8X5eXo7OXGEIQLhFDqCCk1nfKPfHTSpxYvmVKNzoZluYMewDrkewf54XqEebVDEybEaWvblwXmXjKOU5T0RaEQAqSuERqBKBxoat/x2EP7127evO+VN/Z0ZHMZ4GD2g8BowEto9Sfvpp6TjNsqhCOvBkDTCFY6wbGOziPpXuv4qpUXfP/iS+qnIwXh1PagEJgm4gE6Vk7MmVtl3LF+0Y8kKKrAO1AJFfdLCXjYTy3LMV9//eSmpzYfvPd739n5PwO5H6141Akgz501NfFxFy+sX5ERrrfxhm3ztW2RjvFY4o+vt25asujnK2yvDbV4thocF3t9/gRiMR6hJAJKYVdduNxPKZXkDOuZHDh6tHcvdnki0EZxFEFo44DBwJufJhWcaM+kFXJPCKGUkuN0pp/s6W3bv7fz1bzV5vqDixMRB6KR3vBSR8D0mZX6DZ+e8wmXODRs3I9wHZWhKuru3n3iF4//ovGlfL1rMUGD2oDRj15w/oS6z9w49yeWxLEF4eJ+hJAYlXPeuLfjf/ft7bBQcRBFPesI5FP7X6C31zFPnsg0Yto6bHAcYVfFE8kDLW//cdeOtlfxe8Bw3kWxEYgA8mZ8vC2dOnSw+0WN5opsIUSglFDTJN13fvuVTz/2yN7DmHaQI1AXFJhqRgzudbJcedXZtU/8+vqWtJvFCuqA5vsU5vkIIe3ySNJYunxj/VNPHDiG1OONPhiBwrvg3FDs5RIKOjvNPpc6HJQyLVOmRq64UHlpz4rYuCThzLjiig3v2/K7wyfxGT3OH6EHI0EP6cah1ldcffa0u+9fsrdMKx+hHJDqZ1sBu99ofuLfb335S0/++sCxgQ7DSCHQ3XFgbc1NK+fNrj0r/j5vwLXKfQ8jFDXgotRxhdi1q61x65amjnyP21hr+DijJYQJkQgb0jefBoGiPAa+LE5MD8NLi/fad/+WUEIJJZRQQgkllFAC/B3+H07dPRHvYaM0AAAAAElFTkSuQmCC">
     <span id="build-version"></span>
   </div>
-  <div id="hud" data-receiver-ui></div>
 
 <script>
 (function () {
@@ -117,13 +95,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.11-debug';
-
-  /*
-    Diagnostic readout on the television. Set false once the d-pad's real behaviour is known --
-    this exists because the device has never opened port 9222, so there is no console to read.
-  */
-  var DEBUG_HUD = true;
+  var RECEIVER_VERSION = '2026-09-11.12';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -139,58 +111,6 @@
   */
   function status(text) {
     console.log('[comfyui-receiver]', text);
-  }
-
-  // What the d-pad is actually doing, since nothing else can see it.
-  var hudKey = 'key: (none yet)';
-  var hudSeeks = 0;
-  var hudNote = '';
-
-  function renderHud() {
-    if (!DEBUG_HUD) return;
-    var el = document.getElementById('hud');
-    if (!el) return;
-    var v = videoElement();
-    var h = hold;
-    el.textContent =
-      hudKey + '\n' +
-      'hold: ' + (h ? (h.forward ? 'FWD' : 'BACK') + ' ' + (h.endedByKeyUp ? 'timer' : 'repeat') : 'none') + '\n' +
-      'seeks: ' + hudSeeks + '  rate: ' + (v ? v.playbackRate : '?') +
-      '  paused: ' + (v ? v.paused : '?') + '\n' +
-      't: ' + (v ? v.currentTime.toFixed(3) : '?') + '  ' + hudNote;
-  }
-
-  if (DEBUG_HUD) window.setInterval(renderHud, 200);
-
-  /*
-    Key and playback trace, kept on window so it can be read over DevTools after the fact.
-
-    Built into the page rather than injected over the wire, because an injected recorder dies
-    with the next page load -- and a page load is exactly what starting a cast does, so it was
-    never present for the thing it was meant to record. Removed with DEBUG_HUD.
-
-    Registered in the capture phase like the real handler. The real one calls stopPropagation,
-    not stopImmediatePropagation, so listeners on this same node still run and this sees every
-    event the receiver does.
-  */
-  if (DEBUG_HUD) {
-    window.__keylog = [];
-    ['keydown', 'keyup'].forEach(function (type) {
-      window.addEventListener(type, function (e) {
-        window.__keylog.push({ t: Math.round(performance.now()), ev: type, key: e.key,
-                               code: e.keyCode, rpt: !!e.repeat });
-        if (window.__keylog.length > 500) window.__keylog.shift();
-      }, true);
-    });
-    window.__vlog = [];
-    window.setInterval(function () {
-      var v = videoElement();
-      if (!v) return;
-      window.__vlog.push({ t: Math.round(performance.now()), pos: +v.currentTime.toFixed(3),
-                           paused: v.paused, rate: v.playbackRate,
-                           hold: hold ? (hold.forward ? 'F' : 'B') : '-', seeks: hudSeeks });
-      if (window.__vlog.length > 900) window.__vlog.shift();
-    }, 100);
   }
 
   /*
@@ -433,13 +353,6 @@
   var HOLD_DELAY_MS = 400;   // no repeats at all: hold begins if the key has not come up
   var HOLD_IDLE_MS = 320;    // repeats stopped arriving, so it has been released
   var REVERSE_STALL_MS = 400;   // only a backstop: the loop is normally driven by 'seeked'
-  /*
-    Largest jump a single reverse step may make, in seconds of video. Measured: a seek on this
-    hardware costs roughly 250ms whichever way it goes, and 250ms at half speed is 0.125s -- so
-    this is the point where the clamp starts protecting against the runaway described in tick()
-    rather than slowing anything down.
-  */
-  var MAX_REVERSE_STEP = 0.125;
 
   var hold = null;
   var pressTimer = null;
@@ -455,8 +368,6 @@
   function startHold(forward, endedByKeyUp) {
     var video = videoElement();
     if (!video || hold) return true;
-    hudSeeks = 0;
-    hudNote = 'hold started';
     hold = { forward: forward, wasPlaying: !video.paused, timer: null, rateTimer: null,
              endedByKeyUp: endedByKeyUp };
     if (forward) {
@@ -490,41 +401,26 @@
       hold.startedAt = new Date().getTime();
       hold.startPos = video.currentTime;
 
-      hold.lastTarget = hold.startPos;
-      hold.lastTickAt = hold.startedAt;
-
       hold.tick = function () {
         if (!hold) return;
         var v = videoElement();
         if (!v) return;
         /*
-          Each step is capped, and that cap is the whole point. Deriving the target purely from
-          elapsed wall clock -- which is what "keep the speed honest" suggested -- turns a slow
-          seek into a bigger jump, and a bigger backwards jump costs more to decode, which makes
-          the next seek slower again. Measured on the device, that spiral took reverse from a
-          step every 100ms to a 0.2s lurch every 400ms within two seconds of holding the button.
-
-          Capping the step keeps every seek cheap, which keeps them frequent. The cap is set at
-          what the device can actually sustain (a seek measured ~250ms, and 250ms at half speed
-          is 0.125s of video), so in the normal case the clamp does not bind and the speed is
-          still half. When the device falls behind, reverse quietly runs slower than half speed
-          instead of tearing itself apart trying not to.
+          Target from elapsed wall clock, so the speed is half regardless of how many frames the
+          device manages to show. Capping the step size was tried and measured on the hardware:
+          it made each jump smaller (0.125s against 0.203s) without making any seek faster
+          (273ms against 251ms), so it only slowed the travel to 0.40x. There is no feedback
+          loop between step size and seek cost to break -- seeks here cost what they cost.
         */
-        var now = new Date().getTime();
-        var elapsed = (now - hold.lastTickAt) / 1000;
-        hold.lastTickAt = now;
-        var step = Math.min(elapsed * HOLD_RATE, MAX_REVERSE_STEP);
-        hold.lastTarget = Math.max(0, hold.lastTarget - step);
-        var target = hold.lastTarget;
+        var elapsed = (new Date().getTime() - hold.startedAt) / 1000;
+        var target = Math.max(0, hold.startPos - elapsed * HOLD_RATE);
         if (target <= 0 && v.currentTime <= 0) return;   // at the start, nothing left to do
         // fastSeek is cheaper where it exists (it settles for the nearest keyframe, which is
         // all a reverse scrub needs). Chrome does not implement it, hence the fallback.
-        hudSeeks++;
-        hudNote = 'want ' + target.toFixed(3);
         if (typeof v.fastSeek === 'function') v.fastSeek(target); else v.currentTime = target;
       };
 
-      hold.onSeeked = function () { hudNote = 'seeked ok'; if (hold) hold.tick(); };
+      hold.onSeeked = function () { if (hold) hold.tick(); };
       video.addEventListener('seeked', hold.onSeeked);
       // A watchdog in case a seek never reports completion, which would otherwise stall the
       // loop for as long as the button is held.
@@ -580,9 +476,6 @@
   function handleRemoteKey(event) {
     var key = event.key;
     var code = event.keyCode || event.which;
-    hudKey = 'down ' + key + '(' + code + ') rpt=' + (event.repeat ? 'Y' : 'N') +
-             ' @' + (new Date().getTime() % 100000);
-    renderHud();
     var left = key === 'ArrowLeft' || code === 37;
     var right = key === 'ArrowRight' || code === 39;
     var handled = false;
@@ -614,9 +507,6 @@
 
   function handleRemoteKeyUp(event) {
     var code = event.keyCode || event.which;
-    hudKey = 'UP   ' + event.key + '(' + code + ')' +
-             ' @' + (new Date().getTime() % 100000);
-    renderHud();
     if (!(event.key === 'ArrowLeft' || event.key === 'ArrowRight' || code === 37 || code === 39)) return;
     if (pressTimer) { window.clearTimeout(pressTimer); pressTimer = null; }
     // Only believed for a hold that began on the timer. When the remote sends a keyup between

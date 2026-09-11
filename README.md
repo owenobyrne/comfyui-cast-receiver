@@ -199,8 +199,48 @@ file with no second request to 404.
 ## Verifying a change here
 
 There is no browser emulator: the page loads in Chrome, but `CastReceiverContext.start()` needs
-platform APIs only real hardware has. With a cast in progress the device opens port 9222, so
-`http://<tv-ip>:9222` in desktop Chrome gives console, elements and network against the live
-page — which is also where the `[comfyui-receiver]` log lines go now that nothing is drawn on
-screen. The port is closed when nothing is casting, which is why a scan finds nothing until you
-start.
+platform APIs only real hardware has.
+
+**On a Google TV, forget port 9222.** That is the Chromecast-dongle route; here the receiver
+runs in a WebView inside `com.google.android.apps.mediashell`, and the way in is ADB:
+
+```sh
+# TV: Settings > System > About > tap "Android TV OS build" 7x, then
+#     Settings > System > Developer options > Network debugging
+adb pair <tv-ip>:<pair-port> <code>          # the pairing dialog on the TV
+adb connect <tv-ip>:<connect-port>           # a different, longer-lived port
+adb -s <tv-ip>:<port> shell cat /proc/net/unix | grep devtools
+adb -s <tv-ip>:<port> forward tcp:9223 localabstract:cast_shell_devtools_remote
+curl http://localhost:9223/json              # the receiver page is a target
+```
+
+From there the DevTools protocol gives `Runtime.evaluate` against the live page and
+`Input.dispatchKeyEvent` to synthesise d-pad presses. That is how the `touch-controls` element
+was identified, how seek latency was measured, and how the remote's actual key pattern was
+captured. **Reach for this first.** Three consecutive releases were shipped guessing at this
+receiver's behaviour from the SDK source, and all three were wrong; one session with a console
+settled it.
+
+Two things that will waste time otherwise: injected state (a recorder on `window`) dies on the
+next page load, and starting a cast *is* a page load — so anything that needs to observe a cast
+has to be in the deployed page, not injected. And the receiver page can stay resident with its
+media loaded after the cast goes idle, which is useful: you can experiment against a real,
+loaded `<video>` without casting again.
+
+## Reverse scrubbing is limited by the hardware, not the code
+
+Measured on a Chromecast HD (`boreal`, Chrome 92): **a seek costs ~250ms whichever direction it
+goes**, mid-clip or near the start, so a seek-driven reverse can only ever refresh about four
+times a second. It is a slideshow at half speed, not smooth motion, and no amount of tuning
+changes that.
+
+Two hypotheses were tested against the device and **both were wrong**, which is worth recording
+so they are not tried again:
+
+- *Backwards seeks are dear because they decode from the preceding keyframe.* Forwards seeks
+  mid-clip measured **slower** (272–338ms) than backwards (210–273ms). Near the start is quicker
+  (126–191ms) simply because the whole thing is cheaper there, which is why reverse "looks like
+  it works" at the beginning of a clip.
+- *Big jumps make the next seek dearer, so capping the step would break a feedback spiral.*
+  Capping to 0.125s produced smaller jumps (0.125s vs 0.203s) and no faster seeks (273ms vs
+  251ms), so it only slowed travel to 0.40x. Reverted.
