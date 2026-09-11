@@ -53,8 +53,9 @@
     bottom: 9vmin;
     display: flex;
     align-items: center;
-    /* No gap: the clip below tucks under the mark, which is what the name emerges from. */
-    gap: 0;
+    /* The pill emerges from this gap. It used to tuck under the mark, which meant it crossed
+       over the logo on the way out; now the clip begins where the mark ends. */
+    gap: 0.9vmin;
     pointer-events: none;
     visibility: hidden;
     z-index: 2;
@@ -67,9 +68,6 @@
     height: 4.6vmin;
     background: var(--comfy-mark) center / contain no-repeat;
     transform: scale(0);
-    /* Above the clip, so the name is hidden by the mark rather than beside it. */
-    position: relative;
-    z-index: 1;
   }
 
   /*
@@ -80,8 +78,15 @@
   */
   #banner .nameClip {
     overflow: hidden;
-    margin-left: -2.3vmin;
-    padding-left: 2.3vmin;
+    /*
+      An optical nudge, not a correction of anything measurable: the mark's artwork is centred
+      to the pixel inside its own image (ink spans rows 10-86 of 96), and the two boxes centre
+      on each other to within a hundredth of a pixel. The pill still reads a touch high against
+      a round mark, which is ordinary for a rectangle beside a circle. Applied as `top` rather
+      than a transform, which the slide animation owns.
+    */
+    position: relative;
+    top: 0.15vmin;
     /*
       A flex box, not a bare inline one. As an inline box the clip inherits a line box taller
       than the pill inside it -- leading above and below the text -- so centring the *clip*
@@ -122,13 +127,19 @@
     100% { transform: scale(0); }
   }
 
+  /*
+    Opacity runs ahead of the slide at both ends: the pill is fully solid a third of the way
+    through its travel and gone well before it finishes retreating. Fading in step with the
+    movement made it look like it was dragging itself out.
+  */
   @keyframes namePeek {
     0%   { opacity: 0; transform: translateX(-100%); }
     14%  { opacity: 0; transform: translateX(-100%); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
-    24%  { opacity: 1; }
+    20%  { opacity: 1; }
     34%  { opacity: 1; transform: translateX(0); }
     76%  { opacity: 1; transform: translateX(0); animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0); }
-    87%  { opacity: 0; transform: translateX(-100%); }
+    82%  { opacity: 0; }
+    87%  { transform: translateX(-100%); }
     100% { opacity: 0; transform: translateX(-100%); }
   }
 
@@ -166,7 +177,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.16';
+  var RECEIVER_VERSION = '2026-09-11.17';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
