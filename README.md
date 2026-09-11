@@ -60,10 +60,18 @@ Releasing restores the rate and whatever the clip was doing beforehand.
 Forward goes through `PlayerManager.play()` *and* sets the element's `playbackRate`, and
 re-asserts the rate periodically: the SDK owns the player's state and a bare `video.play()`
 behind its back is liable to be corrected, while the rate is the one thing `PlayerManager` has
-no say over. Forward otherwise uses the video's own `playbackRate`. Backward cannot: a negative `playbackRate` is not
-supported, so reverse is a seek loop that walks `currentTime` back by however much wall clock
-has passed. It ticks at 100ms rather than per frame, because a television seeking backwards is
-decoding far more than it appears to.
+no say over.
+
+**Backward is not playback and cannot be** — a negative `playbackRate` is unsupported — so it is
+a seek loop, and the loop is driven by *completion, not by a clock*. Seeking backwards decodes
+from the preceding keyframe every time; firing those on a fixed interval outruns the television,
+the requests queue, and nothing appears until the button comes up. That was a real bug, and it
+looked identical to the tap/hold one it outlived — forward worked, backward did not, because the
+two are not the same mechanism. Issuing the next seek on the previous one's `seeked` event means
+never more than one is outstanding and every one is shown, at whatever rate the hardware manages.
+Each target comes from elapsed wall clock rather than a fixed decrement, so a slow device drops
+frames but still travels at half speed. `fastSeek` is used where it exists; Chrome does not
+implement it. A 400ms timer remains only as a backstop against a seek that never reports.
 
 Repeats are **ignored** for up/down and for play/pause. Holding down would otherwise tear
 through the gallery an item per repeat with no way to stop on the one you wanted.
