@@ -117,7 +117,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.9-debug';
+  var RECEIVER_VERSION = '2026-09-11.10-debug';
 
   /*
     Diagnostic readout on the television. Set false once the d-pad's real behaviour is known --
@@ -161,6 +161,37 @@
   }
 
   if (DEBUG_HUD) window.setInterval(renderHud, 200);
+
+  /*
+    Key and playback trace, kept on window so it can be read over DevTools after the fact.
+
+    Built into the page rather than injected over the wire, because an injected recorder dies
+    with the next page load -- and a page load is exactly what starting a cast does, so it was
+    never present for the thing it was meant to record. Removed with DEBUG_HUD.
+
+    Registered in the capture phase like the real handler. The real one calls stopPropagation,
+    not stopImmediatePropagation, so listeners on this same node still run and this sees every
+    event the receiver does.
+  */
+  if (DEBUG_HUD) {
+    window.__keylog = [];
+    ['keydown', 'keyup'].forEach(function (type) {
+      window.addEventListener(type, function (e) {
+        window.__keylog.push({ t: Math.round(performance.now()), ev: type, key: e.key,
+                               code: e.keyCode, rpt: !!e.repeat });
+        if (window.__keylog.length > 500) window.__keylog.shift();
+      }, true);
+    });
+    window.__vlog = [];
+    window.setInterval(function () {
+      var v = videoElement();
+      if (!v) return;
+      window.__vlog.push({ t: Math.round(performance.now()), pos: +v.currentTime.toFixed(3),
+                           paused: v.paused, rate: v.playbackRate,
+                           hold: hold ? (hold.forward ? 'F' : 'B') : '-', seeks: hudSeeks });
+      if (window.__vlog.length > 900) window.__vlog.shift();
+    }, 100);
+  }
 
   /*
     Suppressing the platform's playback overlay — the title-and-scrubber bar a television draws
