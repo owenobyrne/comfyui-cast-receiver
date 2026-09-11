@@ -6,6 +6,14 @@
 <title>ComfyUI Cast Receiver</title>
 <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
 <style>
+  /*
+    The app's mark, hoisted to a custom property so the build badge and the banner share one
+    copy of it rather than embedding the same 5KB twice.
+  */
+  :root {
+    --comfy-mark: url("data:image/png;base64,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");
+  }
+
   html, body {
     margin: 0;
     height: 100%;
@@ -98,10 +106,80 @@
     font-style: normal;
   }
 
-  #build img {
+  #build .mark {
     width: 2.6vmin;
     height: 2.6vmin;
-    display: block;
+    background: var(--comfy-mark) center / contain no-repeat;
+  }
+
+  /*
+    The title card, at the start of a newly playing clip only.
+
+    Choreographed entirely in CSS keyframes over one duration rather than by a chain of timers:
+    the sequence is the point, and a chain of setTimeouts drifts, cannot be interrupted cleanly
+    when a new clip arrives, and puts the timing in a different place from the motion it
+    describes. One class toggle starts the whole thing.
+
+    The mark pops first, overshooting slightly, and the name slides out from behind it -- hence
+    the negative translate at rest, which parks the label under the mark before it emerges.
+    Coming off, the name flicks back the way it came, faster than it left, and only then does
+    the mark pop away.
+  */
+  #banner {
+    position: absolute;
+    left: 3vmin;
+    bottom: 15vmin;
+    display: flex;
+    align-items: center;
+    gap: 1vmin;
+    pointer-events: none;
+    visibility: hidden;
+    z-index: 2;
+  }
+
+  #banner.show { visibility: visible; }
+
+  #banner .mark {
+    width: 4.6vmin;
+    height: 4.6vmin;
+    background: var(--comfy-mark) center / contain no-repeat;
+    transform: scale(0);
+  }
+
+  #banner .name {
+    padding: 0.9vmin 1.5vmin;
+    border-radius: 1vmin;
+    background: rgba(0, 0, 0, 0.58);
+    color: #f5fd75;
+    font: 600 2vmin/1 system-ui, -apple-system, sans-serif;
+    white-space: nowrap;
+    max-width: 62vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    /* Parked behind the mark, which is where it slides out from. */
+    transform: translateX(-2.6vmin);
+  }
+
+  #banner.show .mark { animation: markPop 2200ms both; }
+  #banner.show .name { animation: namePeek 2200ms both; }
+
+  @keyframes markPop {
+    0%   { transform: scale(0); animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1); }
+    11%  { transform: scale(1.18); }
+    16%  { transform: scale(1); }
+    88%  { transform: scale(1); animation-timing-function: cubic-bezier(0.5, -0.5, 0.75, 0.4); }
+    98%  { transform: scale(0); }
+    100% { transform: scale(0); }
+  }
+
+  @keyframes namePeek {
+    0%   { opacity: 0; transform: translateX(-2.6vmin); }
+    14%  { opacity: 0; transform: translateX(-2.6vmin); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+    31%  { opacity: 1; transform: translateX(0); }
+    76%  { opacity: 1; transform: translateX(0); animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0); }
+    87%  { opacity: 0; transform: translateX(-2.6vmin); }
+    100% { opacity: 0; transform: translateX(-2.6vmin); }
   }
 
   /* Set by the zoom message handler below; the video itself is what gets transformed. */
@@ -114,8 +192,12 @@
 <body>
   <cast-media-player id="player"></cast-media-player>
   <div id="build" data-receiver-ui>
-    <img alt="" src="data:image/png;base64,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">
+    <span class="mark"></span>
     <span id="build-version"></span>
+  </div>
+  <div id="banner" data-receiver-ui>
+    <span class="mark"></span>
+    <span class="name"></span>
   </div>
   <div id="loopMarks" data-receiver-ui>
     <span class="loop-mark" id="markA" hidden><i>A</i><b></b></span>
@@ -138,7 +220,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.13';
+  var RECEIVER_VERSION = '2026-09-11.14';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -376,6 +458,53 @@
     status('queue ' + (forward ? 'next' : 'previous'));
     return true;
   }
+
+  /*
+    The title card at the start of a newly playing clip.
+
+    "Newly playing" is the whole difficulty. These clips loop, and a loop must not re-announce
+    itself, so the trigger cannot be "playback started". It keys off the contentId instead:
+    looping does not change it, advancing the queue does, and casting something else does. The
+    consequence to know about is that re-casting the *same* file to a receiver that is still up
+    shows nothing, which is the right call far more often than it is wrong.
+
+    PLAYER_LOAD_COMPLETE rather than the LOAD interceptor, so the name appears with the picture
+    rather than while it is still being fetched.
+
+    Stills are skipped: the banner announces a video starting, and a photo has no start.
+  */
+  var BANNER_MS = 2200;
+  var lastBannerId = null;
+  var bannerTimer = null;
+
+  function showBanner() {
+    var info = playerManager.getMediaInformation();
+    if (!info) return;
+    var id = info.contentId || '';
+    if ((info.contentType || '').indexOf('video') !== 0) return;
+    if (id === lastBannerId) return;
+    lastBannerId = id;
+
+    var el = document.getElementById('banner');
+    var label = el && el.querySelector('.name');
+    if (!el || !label) return;
+
+    var title = info.metadata && info.metadata.title;
+    if (!title) {
+      // Fall back to the last path segment of the URL, minus any query.
+      try { title = decodeURIComponent(id.split('?')[0].split('/').pop()); } catch (e) { title = id; }
+    }
+    label.textContent = title;
+
+    el.classList.remove('show');
+    void el.offsetWidth;   // forces a reflow, so the animation restarts rather than continuing
+    el.classList.add('show');
+    if (bannerTimer) window.clearTimeout(bannerTimer);
+    bannerTimer = window.setTimeout(function () { el.classList.remove('show'); }, BANNER_MS);
+    status('banner ' + title);
+  }
+
+  playerManager.addEventListener(cast.framework.events.EventType.PLAYER_LOAD_COMPLETE, showBanner);
 
   /*
     A -> B repeat.
