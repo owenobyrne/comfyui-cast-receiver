@@ -32,7 +32,9 @@ d-pad doing nothing. It is put back to work here:
 | left / right, tapped | step one frame back / forward |
 | left / right, held | play at half speed, forward or backward |
 | centre, or the play-pause key | play / pause |
-| up / down | previous / next item in the gallery |
+| down, tapped | set the next A→B loop point |
+| up, tapped | clear the loop |
+| up / down, held | previous / next item in the gallery |
 
 **Tap and hold are not distinguished by `event.repeat`.** That was the first attempt and it did
 nothing on the television: the hold never engaged, every auto-repeat was handled as a fresh tap,
@@ -84,7 +86,25 @@ Frame rate cannot be read from a `<video>`, so it arrives from the phone (which 
 decoder) and is remembered for the remote's use — a remote press can easily come before the
 phone has ever sent a step. It is 24 until told otherwise.
 
-Up and down move through the **Cast queue**, not through anything invented here. Giving each
+**A→B repeat.** Tapping down sets A, then B, then starts a fresh range; tapping up clears both.
+Both work while paused, which is the point — you choose a loop by stepping frame by frame to the
+exact moment you want, and stepping pauses. Markers appear on screen as each is set.
+
+The loop is enforced on the **upper bound only**. Being pulled forwards to A while stepping
+backwards out of the range would make a range impossible to set, since stepping around is
+exactly how you choose the points. Pressing play from outside the range is the one unambiguous
+case, and jumps to A. Enforcement is polled at 50ms as well as driven by `timeupdate`, which
+only fires about four times a second — a quarter-second of overshoot past B on a 15s clip. The
+jump back to A costs a seek, so expect the same ~250ms hitch everything else here does.
+
+Tap and hold are separated by a 600ms timer rather than by `event.repeat`, which this remote
+never sets. Measured: the first repeat arrives ~380ms after the press, then every ~50ms, with a
+single keyup at the end. So a hold is the key still being down when the timer expires, and a tap
+is keyup arriving first. Item navigation is the *held* action deliberately — setting a loop
+point is frequent and timing-critical and belongs on release, where a press is most precise,
+while changing item is rare and throws away what you were looking at.
+
+Held up/down move through the **Cast queue**, not through anything invented here. Giving each
 item the URLs of its neighbours would put a second copy of the gallery's ordering on the
 television, where it could drift from the phone's; the queue is already that ordering. "Cast
 all" has always loaded a real multi-item queue, and the phone now sends the surrounding items
