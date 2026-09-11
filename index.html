@@ -54,8 +54,9 @@
     display: flex;
     align-items: center;
     /* The pill emerges from this gap. It used to tuck under the mark, which meant it crossed
-       over the logo on the way out; now the clip begins where the mark ends. */
-    gap: 0.9vmin;
+       over the logo on the way out; now the clip begins where the mark ends, with enough room
+       that the two read as separate objects rather than one crowded lockup. */
+    gap: 1.7vmin;
     pointer-events: none;
     visibility: hidden;
     z-index: 2;
@@ -177,7 +178,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.17';
+  var RECEIVER_VERSION = '2026-09-11.18';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
