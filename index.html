@@ -145,8 +145,14 @@
     0%   { opacity: 0; transform: translateX(-100%); }
     13%  { opacity: 0; transform: translateX(-100%); }
     /* Solid before it moves. Still behind the clip edge, so nothing appears yet. */
-    17%  { opacity: 1; transform: translateX(-100%); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
-    36%  { opacity: 1; transform: translateX(0); }
+    /*
+      easeOutCubic, not the near-exponential curve this had. That one put almost all 180 pixels
+      into the first fraction of its window -- sampling at 70ms on the device caught the pill at
+      -180 and then at -12 with nothing in between, which is a pop, not a slide. This is gentler
+      and runs over a longer window, so the travel is legible.
+    */
+    17%  { opacity: 1; transform: translateX(-100%); animation-timing-function: cubic-bezier(0.33, 1, 0.68, 1); }
+    41%  { opacity: 1; transform: translateX(0); }
     76%  { opacity: 1; transform: translateX(0); animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0); }
     /* Flicks back solid, and is only faded once it is hidden again. */
     86%  { opacity: 1; transform: translateX(-100%); }
@@ -188,7 +194,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.19';
+  var RECEIVER_VERSION = '2026-09-11.20';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
