@@ -117,7 +117,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.10-debug';
+  var RECEIVER_VERSION = '2026-09-11.11-debug';
 
   /*
     Diagnostic readout on the television. Set false once the d-pad's real behaviour is known --
@@ -433,6 +433,13 @@
   var HOLD_DELAY_MS = 400;   // no repeats at all: hold begins if the key has not come up
   var HOLD_IDLE_MS = 320;    // repeats stopped arriving, so it has been released
   var REVERSE_STALL_MS = 400;   // only a backstop: the loop is normally driven by 'seeked'
+  /*
+    Largest jump a single reverse step may make, in seconds of video. Measured: a seek on this
+    hardware costs roughly 250ms whichever way it goes, and 250ms at half speed is 0.125s -- so
+    this is the point where the clamp starts protecting against the runaway described in tick()
+    rather than slowing anything down.
+  */
+  var MAX_REVERSE_STEP = 0.125;
 
   var hold = null;
   var pressTimer = null;
@@ -483,12 +490,32 @@
       hold.startedAt = new Date().getTime();
       hold.startPos = video.currentTime;
 
+      hold.lastTarget = hold.startPos;
+      hold.lastTickAt = hold.startedAt;
+
       hold.tick = function () {
         if (!hold) return;
         var v = videoElement();
         if (!v) return;
-        var elapsed = (new Date().getTime() - hold.startedAt) / 1000;
-        var target = Math.max(0, hold.startPos - elapsed * HOLD_RATE);
+        /*
+          Each step is capped, and that cap is the whole point. Deriving the target purely from
+          elapsed wall clock -- which is what "keep the speed honest" suggested -- turns a slow
+          seek into a bigger jump, and a bigger backwards jump costs more to decode, which makes
+          the next seek slower again. Measured on the device, that spiral took reverse from a
+          step every 100ms to a 0.2s lurch every 400ms within two seconds of holding the button.
+
+          Capping the step keeps every seek cheap, which keeps them frequent. The cap is set at
+          what the device can actually sustain (a seek measured ~250ms, and 250ms at half speed
+          is 0.125s of video), so in the normal case the clamp does not bind and the speed is
+          still half. When the device falls behind, reverse quietly runs slower than half speed
+          instead of tearing itself apart trying not to.
+        */
+        var now = new Date().getTime();
+        var elapsed = (now - hold.lastTickAt) / 1000;
+        hold.lastTickAt = now;
+        var step = Math.min(elapsed * HOLD_RATE, MAX_REVERSE_STEP);
+        hold.lastTarget = Math.max(0, hold.lastTarget - step);
+        var target = hold.lastTarget;
         if (target <= 0 && v.currentTime <= 0) return;   // at the start, nothing left to do
         // fastSeek is cheaper where it exists (it settles for the nearest keyframe, which is
         // all a reverse scrub needs). Chrome does not implement it, hence the fallback.
