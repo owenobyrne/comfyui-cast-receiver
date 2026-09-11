@@ -129,18 +129,28 @@
   }
 
   /*
-    Opacity runs ahead of the slide at both ends: the pill is fully solid a third of the way
-    through its travel and gone well before it finishes retreating. Fading in step with the
-    movement made it look like it was dragging itself out.
+    Opacity finishes while the pill is still hidden, so the travel itself is seen.
+
+    Measured on the television, fading and sliding together does not read as a slide at all: at
+    36% opacity the pill had already covered 22 of its 180 pixels, and by the time it was solid
+    only the last 32 remained. Almost the whole movement happened while it was too faint to
+    follow, which is exactly the "it just fades in" this kept coming back as.
+
+    The pill is clipped, so at translateX(-100%) it is invisible whatever its opacity. That is
+    the trick: the fade runs to completion there, costing nothing visually, and every pixel of
+    the slide that follows happens at full strength. The retreat is the same in reverse -- it
+    stays solid all the way back behind the mark, and only then is the opacity dropped.
   */
   @keyframes namePeek {
     0%   { opacity: 0; transform: translateX(-100%); }
-    14%  { opacity: 0; transform: translateX(-100%); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
-    20%  { opacity: 1; }
-    34%  { opacity: 1; transform: translateX(0); }
+    13%  { opacity: 0; transform: translateX(-100%); }
+    /* Solid before it moves. Still behind the clip edge, so nothing appears yet. */
+    17%  { opacity: 1; transform: translateX(-100%); animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
+    36%  { opacity: 1; transform: translateX(0); }
     76%  { opacity: 1; transform: translateX(0); animation-timing-function: cubic-bezier(0.7, 0, 0.84, 0); }
-    82%  { opacity: 0; }
-    87%  { transform: translateX(-100%); }
+    /* Flicks back solid, and is only faded once it is hidden again. */
+    86%  { opacity: 1; transform: translateX(-100%); }
+    92%  { opacity: 0; transform: translateX(-100%); }
     100% { opacity: 0; transform: translateX(-100%); }
   }
 
@@ -178,7 +188,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.18';
+  var RECEIVER_VERSION = '2026-09-11.19';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
