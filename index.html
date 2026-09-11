@@ -82,14 +82,24 @@
     overflow: hidden;
     margin-left: -2.3vmin;
     padding-left: 2.3vmin;
+    /*
+      A flex box, not a bare inline one. As an inline box the clip inherits a line box taller
+      than the pill inside it -- leading above and below the text -- so centring the *clip*
+      against the mark left the pill sitting high. Making the clip a flex container means its
+      height is the pill's height and the two centres coincide.
+    */
+    display: flex;
+    align-items: center;
   }
 
   #banner .name {
     display: block;
     padding: 0.9vmin 1.5vmin;
     border-radius: 1vmin;
-    background: rgba(0, 0, 0, 0.58);
-    color: #f5fd75;
+    /* The mark's own yellow, with the app's background purple for the text -- the same pairing
+       the phone uses, so the card reads as belonging to it rather than to the television. */
+    background: #f5fd75;
+    color: #211927;
     font: 600 2vmin/1 system-ui, -apple-system, sans-serif;
     white-space: nowrap;
     max-width: 62vw;
@@ -156,7 +166,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.15';
+  var RECEIVER_VERSION = '2026-09-11.16';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
