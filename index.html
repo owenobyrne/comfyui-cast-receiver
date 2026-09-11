@@ -95,7 +95,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.5';
+  var RECEIVER_VERSION = '2026-09-11.6';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
@@ -323,35 +323,60 @@
   }
 
   /*
-    Tap versus hold, on a d-pad that only reports key repeats.
+    Tap versus hold, without trusting the remote to say which it is.
 
-    A tap of left/right steps one frame, which is what this receiver exists for. Holding one
-    runs at half speed instead -- fast enough to cover ground, slow enough to see. The two are
-    told apart by `event.repeat`: the first press is always a tap and always steps, and if
-    repeats start arriving the press becomes a hold and motion takes over from where the step
-    left it. Nothing has to be timed, and a tap is never delayed waiting to find out whether it
-    was going to become a hold.
+    The first attempt keyed off `event.repeat` and did nothing on the television: the hold never
+    engaged, so every auto-repeat was treated as a fresh tap and a pile of single-frame seeks
+    landed at once when the decoder caught up -- which is the "it jumps when I let go" this is
+    fixing. A d-pad is not a keyboard and there are three plausible behaviours, so none of them
+    is assumed:
 
-    Forward is the video's own playbackRate. Backward cannot be: a negative playbackRate is not
-    supported, so reverse is walked by hand on a timer, moving currentTime by however much wall
-    clock has passed at the same half speed. It is a seek loop rather than playback, which is
-    why it ticks at REVERSE_TICK_MS rather than every frame -- a television seeking backwards is
-    decoding a lot more than it looks.
+      A. auto-repeat with event.repeat === true
+      B. repeated keydown/keyup pairs at the repeat rate, no `repeat` flag
+      C. a single keydown, no repeats at all, keyup on release
 
-    Releasing restores the rate and whatever the clip was doing before the hold, rather than
-    leaving it playing or paused by side effect.
+    A and B both show up as *presses arriving faster than a person taps*, which is the signal
+    used: a second press of the same direction inside HOLD_GAP_MS means the button is down. C
+    has no repeats to count, so a timer starts the hold if the key has not come up by
+    HOLD_DELAY_MS.
+
+    Ending it has the same problem in reverse. In B a keyup arrives between every repeat, so
+    keyup cannot mean "released" -- instead each press re-arms a watchdog, and the hold ends
+    when the presses stop. In C there is nothing to re-arm, so keyup is the only signal and is
+    taken at face value. Which rule applies is recorded when the hold starts.
   */
   var HOLD_RATE = 0.5;
+  var HOLD_GAP_MS = 250;     // presses closer together than this mean the button is held
+  var HOLD_DELAY_MS = 400;   // no repeats at all: hold begins if the key has not come up
+  var HOLD_IDLE_MS = 320;    // repeats stopped arriving, so it has been released
   var REVERSE_TICK_MS = 100;
-  var hold = null;   // { forward, wasPlaying, timer }
 
-  function startHold(forward) {
+  var hold = null;
+  var pressTimer = null;
+  var idleTimer = null;
+  var lastPressAt = 0;
+  var lastPressDir = 0;
+
+  function armIdleWatchdog() {
+    if (idleTimer) window.clearTimeout(idleTimer);
+    idleTimer = window.setTimeout(endHold, HOLD_IDLE_MS);
+  }
+
+  function startHold(forward, endedByKeyUp) {
     var video = videoElement();
-    if (!video || hold) return false;
-    hold = { forward: forward, wasPlaying: !video.paused, timer: null };
+    if (!video || hold) return true;
+    hold = { forward: forward, wasPlaying: !video.paused, timer: null, rateTimer: null,
+             endedByKeyUp: endedByKeyUp };
     if (forward) {
+      // Through PlayerManager as well as the element: the SDK owns the player's state, and a
+      // bare video.play() behind its back is liable to be corrected. The rate is re-asserted
+      // periodically for the same reason -- it is the one thing PlayerManager has no say over.
+      playerManager.play();
       video.playbackRate = HOLD_RATE;
-      video.play();
+      hold.rateTimer = window.setInterval(function () {
+        var v = videoElement();
+        if (v && v.playbackRate !== HOLD_RATE) v.playbackRate = HOLD_RATE;
+      }, 250);
     } else {
       video.pause();
       hold.timer = window.setInterval(function () {
@@ -365,15 +390,44 @@
   }
 
   function endHold() {
+    if (idleTimer) { window.clearTimeout(idleTimer); idleTimer = null; }
     if (!hold) return;
     var video = videoElement();
     if (hold.timer) window.clearInterval(hold.timer);
+    if (hold.rateTimer) window.clearInterval(hold.rateTimer);
     if (video) {
       video.playbackRate = 1;
-      if (hold.wasPlaying) video.play(); else video.pause();
+      if (hold.wasPlaying) playerManager.play(); else playerManager.pause();
     }
     status('hold released');
     hold = null;
+  }
+
+  function onDirectionPress(forward, isRepeat) {
+    var dir = forward ? 1 : -1;
+    var now = new Date().getTime();
+    var rapid = isRepeat || (dir === lastPressDir && now - lastPressAt < HOLD_GAP_MS);
+    lastPressAt = now;
+    lastPressDir = dir;
+
+    if (hold) {                       // already running: swallow the repeat, keep it alive
+      armIdleWatchdog();
+      return true;
+    }
+    if (pressTimer) { window.clearTimeout(pressTimer); pressTimer = null; }
+
+    if (rapid) {
+      startHold(forward, false);      // repeat-driven: the watchdog ends it
+      armIdleWatchdog();
+      return true;
+    }
+
+    stepFrames(dir);                  // a tap steps at once, never waiting to see what it becomes
+    pressTimer = window.setTimeout(function () {
+      pressTimer = null;
+      startHold(forward, true);       // timer-driven: only keyup ends it
+    }, HOLD_DELAY_MS);
+    return true;
   }
 
   function handleRemoteKey(event) {
@@ -384,8 +438,7 @@
     var handled = false;
 
     if (left || right) {
-      // First press steps; the auto-repeats that follow mean it is being held.
-      handled = event.repeat ? (startHold(right) || true) : stepFrames(right ? 1 : -1);
+      handled = onDirectionPress(right, !!event.repeat);
     } else if (key === 'ArrowDown' || code === 40) {
       // Repeats deliberately ignored: holding down would otherwise tear through the gallery an
       // item per repeat, and there is no way to stop on the one you wanted.
@@ -411,9 +464,11 @@
 
   function handleRemoteKeyUp(event) {
     var code = event.keyCode || event.which;
-    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || code === 37 || code === 39) {
-      endHold();
-    }
+    if (!(event.key === 'ArrowLeft' || event.key === 'ArrowRight' || code === 37 || code === 39)) return;
+    if (pressTimer) { window.clearTimeout(pressTimer); pressTimer = null; }
+    // Only believed for a hold that began on the timer. When the remote sends a keyup between
+    // every repeat, this fires constantly while the button is still down.
+    if (hold && hold.endedByKeyUp) endHold();
   }
 
   window.addEventListener('keydown', handleRemoteKey, true);

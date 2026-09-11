@@ -34,13 +34,33 @@ d-pad doing nothing. It is put back to work here:
 | centre, or the play-pause key | play / pause |
 | up / down | previous / next item in the gallery |
 
-Tap and hold are told apart by `event.repeat`, which is all a d-pad gives you. The first press
-always steps, so a tap is never delayed waiting to see whether it becomes a hold; if repeats
-start arriving, motion takes over from where the step left off. Releasing restores the rate and
-whatever the clip was doing beforehand, rather than leaving it playing or paused as a side
-effect.
+**Tap and hold are not distinguished by `event.repeat`.** That was the first attempt and it did
+nothing on the television: the hold never engaged, every auto-repeat was handled as a fresh tap,
+and the pile of single-frame seeks landed at once when the decoder caught up — "it jumps when I
+let go". A d-pad is not a keyboard, and there are three plausible behaviours:
 
-Forward uses the video's own `playbackRate`. Backward cannot: a negative `playbackRate` is not
+| | while held | on release |
+|---|---|---|
+| A | auto-repeat, `event.repeat === true` | keyup |
+| B | keydown/keyup pairs at the repeat rate, no flag | keyup (indistinguishable from the others) |
+| C | one keydown, no repeats at all | keyup |
+
+None is assumed. A and B both look like *presses arriving faster than a person taps*, so a
+second press of the same direction within 250ms means the button is down. C has no repeats to
+count, so a 400ms timer starts the hold instead.
+
+Ending has the same problem backwards: under B a keyup arrives between every repeat, so keyup
+cannot mean "released". Repeat-driven holds therefore end on a watchdog — each press re-arms it,
+and the hold ends when presses stop — while timer-driven holds take keyup at face value, since
+there is nothing to re-arm. Which rule applies is recorded when the hold starts.
+
+The first press always steps, so a tap is never delayed waiting to see what it becomes.
+Releasing restores the rate and whatever the clip was doing beforehand.
+
+Forward goes through `PlayerManager.play()` *and* sets the element's `playbackRate`, and
+re-asserts the rate periodically: the SDK owns the player's state and a bare `video.play()`
+behind its back is liable to be corrected, while the rate is the one thing `PlayerManager` has
+no say over. Forward otherwise uses the video's own `playbackRate`. Backward cannot: a negative `playbackRate` is not
 supported, so reverse is a seek loop that walks `currentTime` back by however much wall clock
 has passed. It ticks at 100ms rather than per frame, because a television seeking backwards is
 decoding far more than it appears to.
