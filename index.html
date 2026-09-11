@@ -35,6 +35,50 @@
   }
 
   /*
+    A and B loop markers. Marked data-receiver-ui like everything of ours, or the chrome sweep
+    hides them.
+
+    These styles were once deleted by accident: a regex that removed the build badge spanned
+    from its comment to a later `#build` rule, and this block sat between the two. The markup
+    and the code kept working, so nothing failed -- the markers simply stopped being visible.
+  */
+  #loopMarks {
+    position: absolute;
+    left: 3vmin;
+    bottom: 3vmin;
+    display: flex;
+    gap: 1vmin;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .loop-mark {
+    display: flex;
+    align-items: center;
+    gap: 0.8vmin;
+    padding: 0.8vmin 1.4vmin;
+    border-radius: 1vmin;
+    background: rgba(0, 0, 0, 0.55);
+    font: 600 1.8vmin/1 system-ui, -apple-system, sans-serif;
+    color: #f5fd75;
+  }
+
+  .loop-mark[hidden] { display: none; }
+
+  .loop-mark i {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6vmin;
+    height: 2.6vmin;
+    border-radius: 50%;
+    background: #f5fd75;
+    /* The app's purple, as the banner pill uses, rather than plain black. */
+    color: #211927;
+    font-style: normal;
+  }
+
+  /*
     The title card, at the start of a newly playing clip only.
 
     Choreographed entirely in CSS keyframes over one duration rather than by a chain of timers:
@@ -194,7 +238,7 @@
     Actions-based deploy to gain an automatic version is a change to how the live receiver ships
     -- worth doing on purpose, not as a side effect of adding a badge.
   */
-  var RECEIVER_VERSION = '2026-09-11.20';
+  var RECEIVER_VERSION = '2026-09-11.21';
 
   var NAMESPACE = 'urn:x-cast:com.obyrne.comfyui';
   var context = cast.framework.CastReceiverContext.getInstance();
